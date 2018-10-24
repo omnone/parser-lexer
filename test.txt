@@ -1,0 +1,42 @@
+#include <stdio.h>
+
+/*this is a comment 
+mpla
+mpla
+mpla 
+*/
+
+int main(){
+ 
+
+ void my_func(); 
+ void my_func();
+ 
+int k;
+double o ;
+int m;
+o = "im";
+
+
+int m;
+
+if(o == k){
+	
+	int k;
+}
+
+k = 1;
+
+int i ;
+
+ void my_func();
+
+
+for ( i = 0 ; i < 10 ; i++ ){ int okl;}
+
+m = 10;
+m = m - 1;
+m++;
+
+
+}
