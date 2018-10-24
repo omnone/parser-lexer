@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-/* Please avoid this , allocate memory differently */
+/* Please avoid this , allocate memory properly */
 char *variables[100000];
 char *var_type[100000];
 
