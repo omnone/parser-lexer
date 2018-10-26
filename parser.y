@@ -449,7 +449,7 @@ int main(int argc, char *argv[]) {
     //total errors
     printf("\nTotal: [%d] errors\n", count_errors);
 
-    fclose(yyin); //klisimo arxeiou
+    fclose(yyin); //close file
 
   }
   else {//file not found
@@ -468,7 +468,7 @@ int main(int argc, char *argv[]) {
 void yyerror(char* s) {
 
   //extern int line_n;
-  count_errors++; // metritis lathwn
+  count_errors++; // errors counter
 
   printf("[%d] Error : %s  at line %d \n", count_errors, s, yylineno);
 
