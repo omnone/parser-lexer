@@ -247,6 +247,8 @@ int count = 0;
    then we save its type on the same index in "var_type" array.
 */
 
+//Note: A more efficient way to store our variables would be for example using hash-tables. 
+
 void symbols(char* string, char* data_type) {
 
   int i;
