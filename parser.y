@@ -251,12 +251,7 @@ const_expression
 struct variableItem *hashArray[SIZE];
 struct variableItem *item;
 
-/* Everytime that we find a variable , we save its name in "variables" array and
-   then we save its type on the same index in "var_type" array.
-*/
-
-//Note: A more efficient way to store our variables would be for example using hash-tables.
-//Hashing functions
+//Generate hash index for a string
 int generate_hash(char *string)
 {
     int hash_code = 0;
@@ -273,6 +268,7 @@ int generate_hash(char *string)
     return hash_code;
 }
 
+//insert variable's or function's name ,type and datatype to hash table
 void insert(char *name, char *type, char *data_type)
 {
 
@@ -281,40 +277,41 @@ void insert(char *name, char *type, char *data_type)
     item->name = name;
 
     //get the hash
-    int hashIndex = generate_hash(name);
+    int hash_index = generate_hash(name);
 
     //move in array until an empty or deleted cell
-    while (hashArray[hashIndex] != NULL)
+    while (hashArray[hash_index] != NULL)
     {
         //go to next cell
-        ++hashIndex;
+        ++hash_index;
 
         //wrap around the table
-        hashIndex %= SIZE;
+        hash_index %= SIZE;
     }
 
-    hashArray[hashIndex] = item;
+    hashArray[hash_index] = item;
 }
 
+//search for the variable or function to hash table
 struct variableItem *search(char *name)
 {
     //get the hash
-    int hashIndex = generate_hash(name);
+    int hash_index = generate_hash(name);
 
     //move in array until an empty
-    while (hashArray[hashIndex] != NULL)
+    while (hashArray[hash_index] != NULL)
     {
 
-        if (!strcmp(hashArray[hashIndex]->name, name))
+        if (!strcmp(hashArray[hash_index]->name, name))
         {
-            return hashArray[hashIndex];
+            return hashArray[hash_index];
         }
 
         //go to next cell
-        ++hashIndex;
+        ++hash_index;
 
         //wrap around the table
-        hashIndex %= SIZE;
+        hash_index %= SIZE;
     }
 
     return NULL;
@@ -362,48 +359,46 @@ void check_type(char *string_1, char *string_2, char *opt)
     struct variableItem *variable_2 = search(string_2);
 
     //search the first item
-    int hashIndex_1 = generate_hash(string_1);
+    int hash_index_1 = generate_hash(string_1);
 
     //search the hash table until you find a type for the specific
     //variable or name. If we dont find anything that means that we have a string literal etc.
-    while (hashArray[hashIndex_1] != NULL && hashIndex_1 < SIZE)
+    while (hashArray[hash_index_1] != NULL && hash_index_1 < SIZE)
     {
 
-        if (!strcmp(hashArray[hashIndex_1]->name, string_1) && strcmp(hashArray[hashIndex_1]->type, ""))
+        if (!strcmp(hashArray[hash_index_1]->name, string_1) && strcmp(hashArray[hash_index_1]->type, ""))
         {
-            variable_1 = hashArray[hashIndex_1];
+            variable_1 = hashArray[hash_index_1];
             found_1 = 1;
             break;
         }
 
         //go to next cell
-        ++hashIndex_1;
+        ++hash_index_1;
 
         //wrap around the table
-        hashIndex_1 %= SIZE;
+        hash_index_1 %= SIZE;
     }
 
     //search the second item
-    int hashIndex_2 = generate_hash(string_2);
+    int hash_index_2 = generate_hash(string_2);
 
-    //printf("Searching variable %s",string_2);
     //move in array until an empty
-    while (hashArray[hashIndex_2] != NULL && hashIndex_2 < SIZE)
+    while (hashArray[hash_index_2] != NULL && hash_index_2 < SIZE)
     {
 
-        if (!strcmp(hashArray[hashIndex_2]->name, string_2) && strcmp(hashArray[hashIndex_2]->type, ""))
+        if (!strcmp(hashArray[hash_index_2]->name, string_2) && strcmp(hashArray[hash_index_2]->type, ""))
         {
-            variable_2 = hashArray[hashIndex_2];
+            variable_2 = hashArray[hash_index_2];
             found_2 = 1;
-            //printf("found variable %s with type %s",variable_2->name,variable_2->type);
             break;
         }
 
         //go to next cell
-        ++hashIndex_2;
+        ++hash_index_2;
 
         //wrap around the table
-        hashIndex_2 %= SIZE;
+        hash_index_2 %= SIZE;
     }
 
     if ((found_1 == 1) && (found_2 == 1))
