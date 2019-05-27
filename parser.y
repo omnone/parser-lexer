@@ -8,18 +8,25 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-/* Please avoid this , allocate memory properly */
-char *variables[100000];
-char *var_type[100000];
+//size for the hashtable
+#define SIZE 200
+
+struct variableItem {
+   char *type;   
+   char *data_type;
+   char *name;
+};
 
 
 extern int yylineno;//we use this variable in order to get the errors line
 extern FILE* yyin;
 void yyerror(char *s);
-void symbols(char* string, char* data_type);
-void get_type(char *string);
+void check_declaration_and_store(char* string, char* data_type,char *type);
 void check_type(char* string_1,char* string_2, char* opt);
 void is_declared(char* string);
+int generate_hash(char* string);
+struct variableItem *search(char *name);
+void insert(char *name, char *type,char *data_type);
 
 
 
@@ -60,7 +67,7 @@ void is_declared(char* string);
 %%
 
 
-program //arxi
+program 
      :  declaration
      | program declaration
      ;
@@ -72,21 +79,21 @@ declaration
    ;
 
 variable_declaration
-   : data_type identifier {symbols($2,"Variable");}
+   : data_type identifier {check_declaration_and_store($2,"Variable",$<type>1);}
    | variable_declaration ',' identifier
    ;
 
 data_type
-   : basic_data_type
+   : basic_data_type 
    | data_type '*'   %prec '!'
    ;
 
 basic_data_type
-   : INT      {get_type($1);}
-   | CHAR     {get_type($1);}
-   | BOOL     {get_type($1);}
-   | DOUBLE   {get_type($1);}
-   | FLOAT    {get_type($1);}
+   : INT      //{$$=$1;}
+   | CHAR     //{$$=$1;}
+   | BOOL     //{$$=$1;}
+   | DOUBLE   //{$$=$1;}
+   | FLOAT    //{$$=$1;}
    ;
 
 identifier
@@ -95,7 +102,7 @@ identifier
 
 identifier_help
    :
-   | '[' statheri_expression ']'
+   | '[' const_expression ']'
    | '[' error ']'           {yyerrok; }
    ;
 
@@ -114,8 +121,8 @@ function_declaration_help
    ;
 
 result_type
-   : data_type ID {symbols($2,"Function");}
-   | VOID ID            {get_type("void"); symbols($2,"Function");}
+   : data_type ID {check_declaration_and_store($2,"Function",$<type>1);}
+   | VOID ID      {check_declaration_and_store($2,"Function",$<type>1);}
    ;
 
 parameters_list
@@ -231,7 +238,7 @@ expression
    | expression_list ',' error {yyerrok;}
    ;
 
-statheri_expression
+const_expression
    : expression
    ;
 
@@ -241,241 +248,276 @@ statheri_expression
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-int count = 0;
+struct variableItem *hashArray[SIZE];
+struct variableItem *item;
 
 /* Everytime that we find a variable , we save its name in "variables" array and
    then we save its type on the same index in "var_type" array.
 */
 
-//Note: A more efficient way to store our variables would be for example using hash-tables. 
+//Note: A more efficient way to store our variables would be for example using hash-tables.
+//Hashing functions
+int generate_hash(char *string)
+{
+    int hash_code = 0;
 
-void symbols(char* string, char* data_type) {
-
-  int i;
-  //printf("String to check: %s \n", string);
-
-  for (i = 0; i < 100000; i++) {
-
-    //check if we have a variable or a function
-    if (strcmp(variables[i], string) == 0) {
-
-      char erstr[50] = " ";
-
-      strcpy(erstr, data_type);
-      strcat(erstr, " '");
-      strcat(erstr, string);
-      strcat(erstr, "' already declared");
-
-      yyerror(erstr);
-      return;
-
+    int index;
+    for (index = 0; string[index] != '\0'; index++)
+    {
+        //printf("%c has ascci code %d\n", string[index], (int)string[index]);
+        hash_code += (int)string[index];
     }
 
-  }
+    hash_code = hash_code % 100;
 
-  variables[count] = string;
-    //printf("String: %s  Type: %s \n",variables[count],var_type[count]);
-
-
-  count++; //index used for both arrays
-
+    return hash_code;
 }
 
+void insert(char *name, char *type, char *data_type)
+{
 
-//////////////////////////////////////////////////////////////////////////////////////////
-/* Store variables*/
+    struct variableItem *item = (struct variableItem *)malloc(sizeof(struct variableItem));
+    item->type = type;
+    item->name = name;
 
-void get_type(char* string) {
+    //get the hash
+    int hashIndex = generate_hash(name);
 
-  var_type[count] = string;
-  //printf("get_type : %s\n",string);
+    //move in array until an empty or deleted cell
+    while (hashArray[hashIndex] != NULL)
+    {
+        //go to next cell
+        ++hashIndex;
 
+        //wrap around the table
+        hashIndex %= SIZE;
+    }
+
+    hashArray[hashIndex] = item;
+}
+
+struct variableItem *search(char *name)
+{
+    //get the hash
+    int hashIndex = generate_hash(name);
+
+    //move in array until an empty
+    while (hashArray[hashIndex] != NULL)
+    {
+
+        if (!strcmp(hashArray[hashIndex]->name, name))
+        {
+            return hashArray[hashIndex];
+        }
+
+        //go to next cell
+        ++hashIndex;
+
+        //wrap around the table
+        hashIndex %= SIZE;
+    }
+
+    return NULL;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////
+// Here we check if a variable or a function is already declared and if is not
+// then we save it to hash table
+void check_declaration_and_store(char *string, char *data_type, char *type)
+{
+    struct variableItem *item = search(string);
+
+    //if item is not null then the variable or function is already declared
+    if (item != NULL)
+    {
+
+        char erstr[50] = " ";
+
+        strcpy(erstr, data_type);
+        strcat(erstr, " '");
+        strcat(erstr, string);
+        strcat(erstr, "' already declared");
+
+        yyerror(erstr);
+        return;
+    }
+
+    //save variable or function to hash table
+    if (type)
+        insert(string, type, data_type);
+    else
+        insert(string, "", "");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /* Type checking */
+void check_type(char *string_1, char *string_2, char *opt)
+{
 
-void check_type(char* string_1, char* string_2, char* opt) {
+    char erstr[100] = " ";
+    int found_1 = 0; //flag for string_1
+    int found_2 = 0; //flag flag string_2
 
-  //printf("check_type\n");
+    struct variableItem *variable_1 = search(string_1);
+    struct variableItem *variable_2 = search(string_2);
 
-  int i;
+    //search the first item
+    int hashIndex_1 = generate_hash(string_1);
 
-  int index_1 = 0; //index of string_1 which represents variables name
-  int index_2 = 0; //index of string_2 which represents types name
+    //search the hash table until you find a type for the specific
+    //variable or name. If we dont find anything that means that we have a string literal etc.
+    while (hashArray[hashIndex_1] != NULL && hashIndex_1 < SIZE)
+    {
 
-  int found_1 = 0; //flag for string_1
-  int found_2 = 0; //flag flag string_2
+        if (!strcmp(hashArray[hashIndex_1]->name, string_1) && strcmp(hashArray[hashIndex_1]->type, ""))
+        {
+            variable_1 = hashArray[hashIndex_1];
+            found_1 = 1;
+            break;
+        }
 
-  //printf("Strings to compare: %s  %s\n",string_1,string_2);
+        //go to next cell
+        ++hashIndex_1;
 
-  for (i = 0; i < 100000; i++) {
-
-    //printf("%d\n",i);
-
-    if ((strcmp(variables[i], string_1) == 0) && (strcmp(var_type[i], " ") != 0)) {
-      //string_1 found!
-
-      index_1 = i;
-      found_1 = 1;
-
+        //wrap around the table
+        hashIndex_1 %= SIZE;
     }
 
-    if ((strcmp(variables[i], string_2) == 0) && (strcmp(var_type[i], " ") != 0)) {
+    //search the second item
+    int hashIndex_2 = generate_hash(string_2);
 
-      //string_2 found!
+    //printf("Searching variable %s",string_2);
+    //move in array until an empty
+    while (hashArray[hashIndex_2] != NULL && hashIndex_2 < SIZE)
+    {
 
-      index_2 = i;
-      found_2 = 1;
+        if (!strcmp(hashArray[hashIndex_2]->name, string_2) && strcmp(hashArray[hashIndex_2]->type, ""))
+        {
+            variable_2 = hashArray[hashIndex_2];
+            found_2 = 1;
+            //printf("found variable %s with type %s",variable_2->name,variable_2->type);
+            break;
+        }
+
+        //go to next cell
+        ++hashIndex_2;
+
+        //wrap around the table
+        hashIndex_2 %= SIZE;
     }
 
-    //printf("%d %d",index_1,index_2);
+    if ((found_1 == 1) && (found_2 == 1))
+    {
+        if (strcmp(variable_1->type, variable_2->type) != 0)
+        {
 
-  }
+            strcpy(erstr, "Can't ");
+            strcat(erstr, opt);
+            strcat(erstr, " a variable with type '");
+            strcat(erstr, variable_2->type);
+            strcat(erstr, "' and a variable with type '");
+            strcat(erstr, variable_1->type);
+            strcat(erstr, "'");
 
-  char erstr[100] = " ";
-
-  if (( found_1 == 1) && (found_2 == 1)) { //we found variables name and type
-
-
-    //printf("Types: %s %s",var_type[index_1],var_type[index_2]);
-
-    //error: different types
-    if (strcmp(var_type[index_2], var_type[index_1]) != 0) {
-
-
-
-      strcpy(erstr, "Can't ");
-      strcat(erstr, opt);
-      strcat(erstr, " a variable with type '");
-      strcat(erstr, var_type[index_2]);
-      strcat(erstr, "' and a variable with type '");
-      strcat(erstr, var_type[index_1]);
-      strcat(erstr, "'");
-
-
-      yyerror(erstr);
+            yyerror(erstr);
+        }
     }
-  } else if (( found_1 == 1) && (found_2 == 0)){
+    else if ((found_1 == 1) && (found_2 == 0))
+    {
 
-    if ((strcmp(var_type[index_1], "char") != 0) && (strcmp(var_type[index_1], " ") != 0) && (string_2[0] == '"')) {
+        if ((strcmp(variable_1->type, "char") != 0) && (strcmp(variable_1->type, " ") != 0) && (string_2[0] == '"'))
+        {
 
-      strcpy(erstr, "Can't ");
-      strcat(erstr, opt);
-      strcat(erstr, " a variable with type '");
-      strcat(erstr, var_type[index_1]);
-      strcat(erstr, "' with a string literal");
+            strcpy(erstr, "Can't ");
+            strcat(erstr, opt);
+            strcat(erstr, " a variable with type '");
+            strcat(erstr, variable_1->type);
+            strcat(erstr, "' with a string literal");
 
-      yyerror(erstr);
+            yyerror(erstr);
+        }
+        else if ((strcmp(variable_1->type, "char") == 0) && (string_2[0] != '"'))
+        {
 
-    } else if ((strcmp(var_type[index_1], "char") == 0) && (string_2[0] != '"')) {
-
-      strcpy(erstr, "Can't ");
-      strcat(erstr, opt);
-      strcat(erstr, " a variable with type '");
-      strcat(erstr, var_type[index_1]);
-      strcat(erstr, "' with a number");
-      yyerror(erstr);
+            strcpy(erstr, "Can't ");
+            strcat(erstr, opt);
+            strcat(erstr, " a variable with type '");
+            strcat(erstr, variable_1->type);
+            strcat(erstr, "' with a number");
+            yyerror(erstr);
+        }
     }
-  }
 }
-
-
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 /* Check if variable is declared */
+void is_declared(char *string)
+{
 
-void is_declared(char* string) {
+    if (!search(string))
+    { //if found = 0 then variable is not declared
 
-  int i;
-  int found = 0;
+        char erstr[100] = " ";
 
-  for (i = 0; i < 100000; i++) {
+        strcpy(erstr, "Variable '");
+        strcat(erstr, string);
+        strcat(erstr, "' is undeclared");
 
-    if (strcmp(variables[i], string) == 0) {
-
-      found = 1;
-      break;
-
+        yyerror(erstr);
     }
-  }
-
-  if ( found == 0) { //if found = 0 then variable is not declared
-
-    char erstr[100] = " ";
-
-    strcpy(erstr, "Variable '");
-    strcat(erstr, string);
-    strcat(erstr, "' is undeclared");
-
-    yyerror(erstr);
-  }
-
 }
-
 
 //////////////////////////////////////////////////////////////////////////////////////////
 int count_errors = 0;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 
-  int i;
+    if (argc > 1)
+    {
 
-  if (argc > 1) {
+        printf("\n================================================================================================\nError report:\n================================================================================================\n\n");
 
-    printf("\n================================================================================================\nError report:\n================================================================================================\n\n");
+        //open file
+        yyin = fopen(argv[1], "r");
 
-    for (i = 0; i < 100000; i++) { //a bad array initialization , no time for dat
+        if (yyparse() == 0)
+        { //we parsing until the  yyparse() returns 0
+            printf("\n================================================================================================\n");
+            printf("\n[+] Parsing file : \"%s\" completed\n", argv[1]);
+        }
+        else
+        { //parsing failed
+            printf("\n================================================================================================\n");
+            printf("\n[-] Parsing file : \"%s\" failed\n", argv[1]);
+        }
 
-      variables[i] = " ";
-      var_type[i]  = " ";
+        //total errors
+        printf("\nTotal: [%d] errors\n", count_errors);
 
+        fclose(yyin); //close file
+    }
+    else
+    { //file not found
+
+        printf("Error: No file input!\n");
+        exit(1);
     }
 
-
-    //open file
-    yyin = fopen(argv[1], "r");
-
-
-    if (yyparse() == 0) { //we parsing until the  yyparse() returns 0
-      printf("\n================================================================================================\n");
-      printf("\n[+] Parsing file : \"%s\" completed\n", argv[1]);
-    }
-    else { //parsing failed
-      printf("\n================================================================================================\n");
-      printf("\n[-] Parsing file : \"%s\" failed\n", argv[1]);
-    }
-
-
-    //total errors
-    printf("\nTotal: [%d] errors\n", count_errors);
-
-    fclose(yyin); //close file
-
-  }
-  else {//file not found
-
-    printf("Error: No file input!\n");
-    exit(1);
-  }
-
-  return 0;
-
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /* Print errors */
 
-void yyerror(char* s) {
+void yyerror(char *s)
+{
 
-  //extern int line_n;
-  count_errors++; // errors counter
+    //extern int line_n;
+    count_errors++; // errors counter
 
-  printf("[%d] Error : %s  at line %d \n", count_errors, s, yylineno);
-
-
-
+    printf("[%d] Error : %s  at line %d \n", count_errors, s, yylineno);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

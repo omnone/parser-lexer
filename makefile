@@ -1,5 +1,8 @@
-run: lex.yy.c parser.tab.c
-	gcc  lex.yy.c parser.tab.c -o run -lfl
+compile: lex.yy.c parser.tab.c
+	gcc  lex.yy.c parser.tab.c -o program -lfl
+
+run: program
+	./program ${file}
 
 lex.yy.c: parser.tab.c lexer.l
 	flex lexer.l
